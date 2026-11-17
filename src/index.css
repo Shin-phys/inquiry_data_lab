@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pos: #0072b2;
+  --color-vel: #d55e00;
+  --color-acc: #009e73;
+  --font-sans: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+html.big {
+  font-size: 20px;
+}
+body {
+  margin: 0;
+  background: #f4f6f8;
+  color: #1f2933;
+  font-family: var(--font-sans);
+}
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+/* グラフ上のつまみをドラッグするとき、画面がスクロールしないようにする */
+.plot-drag {
+  touch-action: none;
+  cursor: grab;
+}
+.cell {
+  width: 100%;
+  min-width: 4.2rem;
+  height: 2.5rem;
+  padding: 0 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background: #fff;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.cell:focus {
+  outline: 2px solid #0072b2;
+  outline-offset: -1px;
+}
+.cell-bad {
+  border-color: #d55e00;
+  background: #fdf1ea;
+}
+.cell-ro {
+  background: #eef2f6;
+  color: #475569;
+  border-color: transparent;
+}
+
+/* 印刷：操作用の部品を消し、表・グラフ・結論をA4縦1枚に収める */
+.print-only {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  .print-show {
+    display: block !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  /* 1枚に収めるため、表を詰め、グラフの幅をおさえる */
+  .print-main {
+    display: grid !important;
+    grid-template-columns: 64mm minmax(0, 1fr) !important;
+    gap: 5mm !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .cell {
+    height: 1.45rem;
+    min-width: 0;
+    font-size: 11px;
+    border-color: #cbd5e1;
+  }
+  table {
+    font-size: 11px;
+    width: 100%;
+  }
+  .card + .card,
+  .print-show + .print-show {
+    margin-top: 3mm;
+  }
+  textarea,
+  input {
+    border-color: transparent !important;
+    resize: none;
+  }
+  ::placeholder {
+    color: transparent;
+  }
+}

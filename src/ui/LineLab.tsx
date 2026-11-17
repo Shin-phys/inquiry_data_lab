@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { analyze, emptySheet, emptyView, type Sheet, type View } from '../core/model'
+import { CLASS_MAX_ROWS, type ClassConfig, type Payload } from '../core/classroom'
+import { analyze, emptyRow, emptySheet, emptyView, type Sheet, type View } from '../core/model'
 import { calc } from '../core/calc'
 import { encodeLine } from '../core/share'
 import { formatSig } from '../core/stats'
 import { sampleById, sampleRows, type Sample } from '../data/samples'
+import { ClassBanner, ClassCard } from './ClassCard'
 import { DataTable } from './DataTable'
 import { Workbench, lsqOf, refLine, showValue } from './Workbench'
 import { Btn, Card, Header, ShareDialog, loadJson, saveJson } from './common'
@@ -27,9 +29,22 @@ export function sampleInit(s: Sample, seed?: number): LineInit {
 type Tab = 'table' | 'graph' | 'summary'
 const TABS: [Tab, string][] = [['table', '表'], ['graph', 'グラフ'], ['summary', 'まとめ']]
 
-export function LineLab({ init, onHome }: { init: LineInit | null; onHome: () => void }) {
-  const saved = useMemo(() => (init ? null : loadJson<Saved>(KEY)), [init])
-  const [sheet, setSheet] = useState<Sheet>(init?.sheet ?? saved?.sheet ?? emptySheet())
+type Props = {
+  init: LineInit | null
+  onHome: () => void
+  /** クラス集計に参加しているとき */
+  cls?: ClassConfig | null
+  onResults?: () => void
+}
+
+/** クラス集計用の、量の名前が入った空の表 */
+const classSheet = (c: ClassConfig): Sheet => ({ title: c.title, x: c.x, y: c.y, yCols: 1, rows: Array.from({ length: 8 }, () => emptyRow(1)) })
+
+export function LineLab({ init, onHome, cls = null, onResults }: Props) {
+  // クラス集計の作業は、部屋ごとに分けて保存する（ふだんの作業と混ざらないように）
+  const storeKey = cls ? `${KEY}.room.${cls.room}` : KEY
+  const saved = useMemo(() => (init ? null : loadJson<Saved>(storeKey)), [init, storeKey])
+  const [sheet, setSheet] = useState<Sheet>(init?.sheet ?? saved?.sheet ?? (cls ? classSheet(cls) : emptySheet()))
   const [view, setView] = useState<View>(init?.view ?? saved?.view ?? emptyView())
   const [sampleId] = useState<string | null>(init ? (init.sampleId ?? null) : (saved?.sampleId ?? null))
   const [conclusion, setConclusion] = useState(init ? '' : (saved?.conclusion ?? ''))
@@ -48,8 +63,15 @@ export function LineLab({ init, onHome }: { init: LineInit | null; onHome: () =>
   const lsq = lsqOf(a, view)
 
   useEffect(() => {
-    saveJson(KEY, { sheet, view, sampleId, conclusion, expr, qName, qUnit } satisfies Saved)
-  }, [sheet, view, sampleId, conclusion, expr, qName, qUnit])
+    saveJson(storeKey, { sheet, view, sampleId, conclusion, expr, qName, qUnit } satisfies Saved)
+  }, [storeKey, sheet, view, sampleId, conclusion, expr, qName, qUnit])
+
+  // クラスに送るのは、変換する前の値（除外した行は送らない）
+  const payload: Payload | null = useMemo(() => {
+    if (!cls) return null
+    const used = analyze(sheet, emptyView()).used.slice(0, CLASS_MAX_ROWS)
+    return used.length ? { r: used.map((p): [number, number] => [p.x, p.y]) } : null
+  }, [cls, sheet])
 
   const title = sheet.title || (sheet.x.name && sheet.y.name ? `${sheet.y.name}と${sheet.x.name}の関係` : '')
   const base = safeName(sheet.title, 'graph')
@@ -115,6 +137,7 @@ export function LineLab({ init, onHome }: { init: LineInit | null; onHome: () =>
   return (
     <div className="min-h-dvh">
       <Header title="直線化ラボ" onHome={onHome} />
+      {cls && <ClassBanner cfg={cls} />}
       <nav className="no-print sticky top-[61px] z-10 grid grid-cols-3 border-b border-slate-200 bg-white lg:hidden" aria-label="表示の切り替え">
         {TABS.map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className={`min-h-11 text-sm font-bold ${tab === t ? 'border-b-2 border-pos text-pos' : 'text-slate-500'}`}>
@@ -201,6 +224,15 @@ export function LineLab({ init, onHome }: { init: LineInit | null; onHome: () =>
                 <p className="mt-1 text-xs text-slate-500">グラフで直線を引くと計算できます。</p>
               )}
             </Card>
+
+            {cls && (
+              <ClassCard
+                cfg={cls}
+                payload={payload}
+                what={`表の ${payload?.r.length ?? 0} 点（${sheet.x.symbol} と ${sheet.y.symbol} の値）を送ります。`}
+                onResults={() => onResults?.()}
+              />
+            )}
 
             <Card title="保存・共有" className="no-print">
               <div className="flex flex-wrap gap-2">

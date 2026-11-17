@@ -32,7 +32,7 @@ export function Header({ title, onHome, right }: { title: string; onHome: () => 
 }
 
 /** 共有URLとQRコード */
-export function ShareDialog({ url, onClose }: { url: string; onClose: () => void }) {
+export function ShareDialog({ url, onClose, title = '共有URL', note }: { url: string; onClose: () => void; title?: string; note?: string }) {
   const [copied, setCopied] = useState(false)
   const qr = qrPath(url)
   const copy = async () => {
@@ -46,9 +46,9 @@ export function ShareDialog({ url, onClose }: { url: string; onClose: () => void
   return (
     <div className="no-print fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="共有">
-        <h2 className="text-base font-bold text-slate-800">共有URL</h2>
+        <h2 className="text-base font-bold text-slate-800">{title}</h2>
         <p className="mt-1 text-sm leading-relaxed text-slate-600">
-          このURLを開くと、同じデータ・変換・直線が再現されます。データはURLの中に入っていて、サーバーには送られません。
+          {note ?? 'このURLを開くと、同じデータ・変換・直線が再現されます。データはURLの中に入っていて、サーバーには送られません。'}
         </p>
         {qr ? (
           <svg viewBox={`-2 -2 ${qr.n + 4} ${qr.n + 4}`} className="mx-auto my-3 w-56" role="img" aria-label="QRコード" shapeRendering="crispEdges">
@@ -70,6 +70,28 @@ export function ShareDialog({ url, onClose }: { url: string; onClose: () => void
     </div>
   )
 }
+
+/** QRコードを画面いっぱいに出す（教室のスクリーンに映して読み取ってもらう） */
+export function BigQr({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
+  const qr = qrPath(url)
+  return (
+    <div className="no-print fixed inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-white p-4" role="dialog" aria-label="QRコード" onClick={onClose}>
+      <p className="text-center text-xl font-bold text-slate-900">{title}</p>
+      {qr ? (
+        <svg viewBox={`-3 -3 ${qr.n + 6} ${qr.n + 6}`} style={{ width: 'min(92vw, 76vh)', height: 'min(92vw, 76vh)' }} role="img" aria-label="大きなQRコード" shapeRendering="crispEdges">
+          <rect x={-3} y={-3} width={qr.n + 6} height={qr.n + 6} fill="#fff" />
+          <path d={qr.d} fill="#000" />
+        </svg>
+      ) : (
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">QRコードにできませんでした。リンクをコピーして配ってください。</p>
+      )}
+      <Btn onClick={onClose} kind="primary">とじる</Btn>
+    </div>
+  )
+}
+
+/** アプリ自体を手元（localhost）で開いているか。開発用の模擬サーバーを使えるのはこのときだけ */
+export const IS_LOCAL = typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
 
 /** 端末内への保存（使えなくても動く） */
 export function loadJson<T>(key: string): T | null {

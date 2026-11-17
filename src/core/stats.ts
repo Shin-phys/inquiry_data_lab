@@ -125,6 +125,15 @@ export function autoBinWidth(values: number[]): number {
   return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p
 }
 
+/** 1・2・5 の刻みの中で k 段だけ動かす（階級の幅を「細かく／粗く」するとき） */
+export function shiftNice(w: number, k: number): number {
+  const seq = [1, 2, 5]
+  const e = Math.floor(Math.log10(w) + 1e-9)
+  const idx = seq.reduce((best, s, j) => (Math.abs(s - w / 10 ** e) < Math.abs(seq[best] - w / 10 ** e) ? j : best), 0)
+  const n = e * 3 + idx + k
+  return seq[((n % 3) + 3) % 3] * 10 ** Math.floor(n / 3)
+}
+
 export type Bin = { x0: number; x1: number; count: number }
 
 export function histogram(values: number[], width: number): Bin[] {

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { CLASS_MAX_VALUES, type ClassConfig, type Payload } from '../core/classroom'
 import { parseCell } from '../core/parse'
 import { encodeSpread, type SpreadShare } from '../core/share'
-import { autoBinWidth, formatSig, histogram, mean, niceTicks, roundWithUnc, runningMean, sd, se } from '../core/stats'
+import { autoBinWidth, formatSig, histogram, mean, niceTicks, roundWithUnc, runningMean, sd, se, shiftNice } from '../core/stats'
+import { ClassBanner, ClassCard } from './ClassCard'
 import { tickLabel, useGeom } from './Plot'
 import { Btn, Card, Header, ShareDialog, loadJson, saveJson } from './common'
 import { downloadBlob, downloadCsv, safeName, svgToPng } from './exporting'
@@ -29,32 +31,38 @@ function parseGroup(g: Group): { vals: Val[]; bad: number; over: boolean } {
   return { vals, bad, over: tokens.length > MAX_VALUES }
 }
 
-/** 1・2・5 の刻みの中で k 段だけ動かす */
-function shiftNice(w: number, k: number): number {
-  const seq = [1, 2, 5]
-  const e = Math.floor(Math.log10(w) + 1e-9)
-  const idx = seq.reduce((best, s, j) => (Math.abs(s - w / 10 ** e) < Math.abs(seq[best] - w / 10 ** e) ? j : best), 0)
-  const n = e * 3 + idx + k
-  return seq[((n % 3) + 3) % 3] * 10 ** Math.floor(n / 3)
-}
-
 const placeName = (p: number) => (p < 0 ? `小数第${-p}位` : p === 0 ? '一の位' : `10${p > 1 ? `の${p}乗` : ''}の位`)
 
-export function SpreadLab({ init, onHome }: { init: SpreadShare | null; onHome: () => void }) {
-  const [st, setSt] = useState<SpreadShare>(() => init ?? loadJson<SpreadShare>(KEY) ?? emptyState())
+type Props = {
+  init: SpreadShare | null
+  onHome: () => void
+  /** クラス集計に参加しているとき */
+  cls?: ClassConfig | null
+  onResults?: () => void
+}
+
+export function SpreadLab({ init, onHome, cls = null, onResults }: Props) {
+  // クラス集計の作業は、部屋ごとに分けて保存する（ふだんの作業と混ざらないように）
+  const storeKey = cls ? `${KEY}.room.${cls.room}` : KEY
+  const [st, setSt] = useState<SpreadShare>(
+    () => init ?? loadJson<SpreadShare>(storeKey) ?? (cls ? { ...emptyState(), name: cls.y.name, unit: cls.y.unit } : emptyState()),
+  )
   const [binShift, setBinShift] = useState(0)
   const [share, setShare] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   const svgRef = useRef<SVGSVGElement>(null)
   const { W } = useGeom()
 
-  useEffect(() => saveJson(KEY, st), [st])
+  useEffect(() => saveJson(storeKey, st), [storeKey, st])
 
   const parsed = useMemo(() => st.groups.map(parseGroup), [st.groups])
   const used = parsed.map((p) => p.vals.filter((x) => !x.off).map((x) => x.v))
   const all = parsed.flatMap((p) => p.vals.map((x) => x.v))
   const unit = st.unit ? ` ${st.unit}` : ''
   const label = (j: number) => st.groups[j].label || (st.groups.length > 1 ? `群${j + 1}` : '測定値')
+  // クラスに送るのは、1つめの群の、計算に使っている値
+  const sendValues = used[0].slice(0, CLASS_MAX_VALUES)
+  const payload: Payload | null = cls && sendValues.length ? { v: sendValues } : null
 
   const setGroup = (j: number, patch: Partial<Group>) => setSt((s) => ({ ...s, groups: s.groups.map((g, i) => (i === j ? { ...g, ...patch } : g)) }))
   const toggle = (j: number, i: number) => {
@@ -157,6 +165,7 @@ export function SpreadLab({ init, onHome }: { init: SpreadShare | null; onHome: 
   return (
     <div className="min-h-dvh">
       <Header title="ばらつきラボ" onHome={onHome} />
+      {cls && <ClassBanner cfg={cls} />}
       <main className="mx-auto grid max-w-7xl grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
         <div className="flex flex-col gap-3">
           <Card title="測定値">
@@ -193,6 +202,15 @@ export function SpreadLab({ init, onHome }: { init: SpreadShare | null; onHome: 
               2つの群をくらべると、測り方の工夫（例：「1周期を10回測る」と「10周期をまとめて測って10で割る」）でばらつきがどう変わるかを確かめられます。
             </p>
           </Card>
+
+          {cls && (
+            <ClassCard
+              cfg={cls}
+              payload={payload}
+              what={`${st.groups.length > 1 ? `「${label(0)}」の、` : ''}計算に使っている ${sendValues.length} 個の値を送ります。`}
+              onResults={() => onResults?.()}
+            />
+          )}
 
           <Card title="保存・共有" className="no-print">
             <div className="flex flex-wrap gap-2">

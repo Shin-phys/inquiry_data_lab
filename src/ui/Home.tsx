@@ -1,13 +1,19 @@
+import type { ClassConfig } from '../core/classroom'
 import { SAMPLES } from '../data/samples'
 
 type Props = {
+  /** クラス集計のリンクから開いたとき */
+  cls: ClassConfig | null
+  onClassLab: () => void
+  onClassResults: () => void
+  onSetup: () => void
   onLine: () => void
   onSample: (id: string) => void
   onSpread: () => void
   onMystery: () => void
 }
 
-export function Home({ onLine, onSample, onSpread, onMystery }: Props) {
+export function Home({ cls, onClassLab, onClassResults, onSetup, onLine, onSample, onSpread, onMystery }: Props) {
   const card = (title: string, desc: string, action: string, onClick: () => void, primary = false) => (
     <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex-1">
@@ -31,6 +37,17 @@ export function Home({ onLine, onSample, onSpread, onMystery }: Props) {
         </p>
       </header>
 
+      {cls && (
+        <section className="rounded-2xl border-2 border-sky-300 bg-sky-50 p-4">
+          <p className="text-xs font-bold text-sky-900">クラス集計に参加中（部屋 {cls.room}）</p>
+          <p className="mt-0.5 font-bold text-slate-900">{cls.title || 'クラス集計'}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button onClick={onClassLab} className="min-h-12 rounded-xl bg-pos px-4 font-bold text-white shadow-sm active:translate-y-px">測定値を入力して送る</button>
+            <button onClick={onClassResults} className="min-h-12 rounded-xl border-2 border-pos bg-white px-4 font-bold text-pos active:translate-y-px">クラスの結果を見る</button>
+          </div>
+        </section>
+      )}
+
       <section className="flex flex-col gap-3">
         {card('直線化ラボ', '2つの量の関係を調べる。軸を変換して直線になる組をさがし、傾きから物理量を求める', 'はじめる', onLine, true)}
         {card('ばらつきラボ', '同じ量をくり返し測った値を整理し、結果を「平均 ± 不確かさ」で書く', 'はじめる', onSpread)}
@@ -51,7 +68,15 @@ export function Home({ onLine, onSample, onSpread, onMystery }: Props) {
 
       <footer className="text-center text-xs leading-relaxed text-slate-500">
         <p>入力したデータはこの端末の中だけで処理し、外部には送りません。</p>
+        <p className="mt-1">
+          例外は、先生が配ったクラス集計のリンクから開いて「クラスに送る」を押したときだけです（班の番号と数値を、先生のスプレッドシートに送ります）。
+        </p>
         <p className="mt-1">作業の内容は自動で端末に保存され、次に開いたときに続きから始められます。</p>
+        <p className="mt-3">
+          <button onClick={onSetup} className="min-h-11 rounded-lg px-3 text-sm text-slate-600 underline underline-offset-2">
+            先生用：クラスで集める
+          </button>
+        </p>
       </footer>
     </div>
   )
